@@ -43,21 +43,21 @@ def load_model():
 
 model = load_model()
 
-# 第六步：文件上传器 - 这里才定义 uploaded_file！
+# 第六步：文件上传器
 uploaded_file = st.file_uploader(
     "选择电缆图片", 
     type=['jpg', 'jpeg', 'png'],
     help="支持 JPG、JPEG、PNG 格式"
 )
 
-# 第七步：处理上传的文件 - 在这里使用 uploaded_file
+# 第七步：处理上传的文件
 if uploaded_file is not None:
     # 安全地处理图片
     image = Image.open(uploaded_file)
     image_np = np.array(image)
     
-    # 显示原图
-    st.image(image, caption="上传的电缆图片", use_container_width=True)
+    # 显示原图 - 使用 use_column_width 而不是 use_container_width
+    st.image(image, caption="上传的电缆图片", use_column_width=True)
     
     # 检测按钮
     if st.button("开始检测", type="primary"):
@@ -75,7 +75,7 @@ if uploaded_file is not None:
                         if OPENCV_AVAILABLE:
                             result_img = results[0].plot()
                             result_img_rgb = cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)
-                            st.image(result_img_rgb, caption="检测结果", use_container_width=True)
+                            st.image(result_img_rgb, caption="检测结果", use_column_width=True)
                         else:
                             st.info("检测完成，但无法显示带框图片")
                     else:
