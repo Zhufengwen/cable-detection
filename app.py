@@ -2,9 +2,6 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 import os
-
-python
-import os
 os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '1'
 # 这些设置帮助OpenCV在无头环境中运行
 os.environ['DISPLAY'] = ':0'
@@ -65,3 +62,4 @@ if uploaded_file and model:
                     st.success("检测完成！")
             except Exception as e:
                 st.error(f"检测错误: {e}")
+
