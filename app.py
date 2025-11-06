@@ -27,16 +27,68 @@ except Exception as e:
     st.error(f"YOLO加载失败: {e}")
 
 # 应用界面
-st.title("电缆检测系统")
+st.title(" 电缆缺陷检测系统")
+st.write("上传电缆图片，使用AI自动检测缺陷")
 
+# 第五步：加载模型
+@st.cache_resource
+def load_model():
+    try:
+        model = YOLO('improvements.pt')
+        st.success(" 模型加载成功！")
+        return model
+    except Exception as e:
+        st.error(f" 模型加载失败: {e}")
+        return None
+
+model = load_model()
+
+# 第六步：文件上传器 - 这里才定义 uploaded_file！
+uploaded_file = st.file_uploader(
+    "选择电缆图片", 
+    type=['jpg', 'jpeg', 'png'],
+    help="支持 JPG、JPEG、PNG 格式"
+)
+
+# 第七步：处理上传的文件 - 在这里使用 uploaded_file
 if uploaded_file is not None:
-    # 安全地处理图片 - 只用数据处理功能，不用显示功能
+    # 安全地处理图片
     image = Image.open(uploaded_file)
     image_np = np.array(image)
     
-    # 如果OpenCV可用，用它的处理功能
-    if OPENCV_AVAILABLE:
-        # 只使用数据处理函数，不调用任何显示函数
-        # cv2.imdecode()  安全
-        # cv2.imshow()    危险（会调用libGL）
-        pass
+    # 显示原图
+    st.image(image, caption="上传的电缆图片", use_container_width=True)
+    
+    # 检测按钮
+    if st.button("开始检测", type="primary"):
+        with st.spinner("AI正在检测中..."):
+            try:
+                if model is not None and YOLO_AVAILABLE:
+                    # 使用YOLO进行检测
+                    results = model(image_np, conf=0.35)
+                    
+                    # 显示检测结果
+                    if len(results) > 0 and len(results[0].boxes) > 0:
+                        st.success(f" 检测完成！共发现 {len(results[0].boxes)} 个缺陷")
+                        
+                        # 如果有OpenCV，显示带检测框的图片
+                        if OPENCV_AVAILABLE:
+                            result_img = results[0].plot()
+                            result_img_rgb = cv2.cvtColor(result_img, cv2.COLOR_BGR2RGB)
+                            st.image(result_img_rgb, caption="检测结果", use_container_width=True)
+                        else:
+                            st.info("检测完成，但无法显示带框图片")
+                    else:
+                        st.warning(" 未检测到任何缺陷")
+                        
+            except Exception as e:
+                st.error(f" 检测过程中发生错误: {e}")
+
+elif model is None:
+    st.warning(" 请等待模型加载完成...")
+else:
+    st.info(" 请在上方上传电缆图片开始检测")
+
+# 页脚信息
+st.markdown("---")
+st.caption("电缆缺陷检测系统 | 基于YOLO深度学习模型")
