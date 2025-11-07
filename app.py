@@ -1,7 +1,18 @@
+# 在最开头添加环境变量设置
+import os
+# 禁用OpenCV的OpenEXR支持，避免可能的依赖问题
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0' 
+# 设置OpenCV日志级别为错误，减少不必要的输出
+os.environ['OPENCV_LOG_LEVEL'] = 'ERROR' 
+# 可选的：强制OpenCV使用更简单的图像处理后端
+os.environ['OPENCV_IO_MAX_IMAGE_PIXELS'] = '0' 
+
+# 之后再导入其他库
 import streamlit as st
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-import os
+from PIL import Image, ImageDraw
+# 现在应该可以正常导入YOLO了
+from ultralytics import YOLO 
 import torch
 
 # 尝试导入YOLO，如果失败则提供明确指引
@@ -222,3 +233,4 @@ else:
 # 页脚信息
 st.markdown("---")
 st.markdown("电缆缺陷检测系统 | 基于YOLOv8深度学习技术")
+
