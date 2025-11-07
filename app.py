@@ -46,7 +46,7 @@ def load_model():
         st.info(f"正在加载模型: {model_path}")
         
         # 直接使用torch加载模型
-        model = torch.load(model_path, map_location='cpu')
+        model = torch.load(model_path, map_location='cpu', weights_only=False)
         model.eval()  # 设置为评估模式
         
         st.success("模型加载成功!")
@@ -208,3 +208,4 @@ elif model is None:
     st.warning("模型加载失败，无法进行检测")
 else:
     st.info("请上传电缆图片开始检测")
+
