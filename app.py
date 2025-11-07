@@ -1,3 +1,5 @@
+import torch
+torch.serialization.add_safe_globals(["ultralytics.nn.tasks.DetectionModel"])
 import streamlit as st
 from PIL import Image, ImageDraw
 import torch
@@ -208,4 +210,5 @@ elif model is None:
     st.warning("模型加载失败，无法进行检测")
 else:
     st.info("请上传电缆图片开始检测")
+
 
