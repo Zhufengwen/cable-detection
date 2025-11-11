@@ -2,6 +2,81 @@ import streamlit as st
 from PIL import Image, ImageDraw
 import numpy as np
 import os
+import subprocess
+import sys
+
+# 设置页面
+st.set_page_config(page_title="电缆缺陷检测", layout="wide")
+st.title("电缆缺陷检测系统")
+
+# 修复libGL问题的函数
+def fix_yolo_dependencies():
+    """检查和修复YOLO依赖问题"""
+    try:
+        # 先尝试导入YOLO
+        from ultralytics import YOLO
+        return True, None
+    except ImportError as e:
+        error_msg = str(e)
+        if "libGL.so.1" in error_msg:
+            return False, "libGL"
+        else:
+            return False, "other"
+
+# 检查依赖
+yolo_ready, issue_type = fix_yolo_dependencies()
+
+if not yolo_ready:
+    if issue_type == "libGL":
+        st.warning("检测到系统依赖缺失，正在尝试修复...")
+        
+        # 显示修复进度
+        with st.spinner("安装系统依赖中..."):
+            try:
+                # 更新包管理器并安装依赖
+                result = subprocess.run(
+                    ['apt-get', 'update'], 
+                    capture_output=True, 
+                    text=True,
+                    timeout=60
+                )
+                
+                result2 = subprocess.run(
+                    ['apt-get', 'install', '-y', 'libgl1-mesa-glx', 'libglib2.0-0'], 
+                    capture_output=True, 
+                    text=True,
+                    timeout=120
+                )
+                
+                if result2.returncode == 0:
+                    st.success("依赖安装成功！请刷新页面重试。")
+                    st.balloons()
+                else:
+                    st.error("依赖安装失败，尝试备用方案...")
+                    # 尝试opencv-headless方案
+                    try:
+                        subprocess.run([
+                            sys.executable, '-m', 'pip', 'install', 
+                            'opencv-python-headless==4.8.1.78'
+                        ], check=True)
+                        st.success("备用方案安装成功！请刷新页面。")
+                    except:
+                        st.error("所有修复方案都失败了，请联系管理员。")
+                        
+            except Exception as e:
+                st.error(f"修复过程中出错: {str(e)}")
+        
+        st.stop()
+    else:
+        st.error("YOLO库导入失败，请检查安装。")
+        st.stop()
+
+# 如果依赖正常，继续执行后续代码
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
+
+# 现在安全地导入YOLO
+from ultralytics import YOLO
+YOLO_AVAILABLE = True
 
 # 设置页面
 st.set_page_config(page_title="电缆缺陷检测", layout="wide")
@@ -187,3 +262,4 @@ if uploaded_file is not None:
 
 else:
     st.info("请上传电缆图片开始检测")
+
