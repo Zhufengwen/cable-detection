@@ -2,96 +2,33 @@ import streamlit as st
 from PIL import Image, ImageDraw
 import numpy as np
 import os
-import subprocess
 import sys
 
-# 设置页面
-st.set_page_config(page_title="电缆缺陷检测", layout="wide")
-st.title("电缆缺陷检测系统")
-
-# 修复libGL问题的函数
-def fix_yolo_dependencies():
-    """检查和修复YOLO依赖问题"""
-    try:
-        # 先尝试导入YOLO
-        from ultralytics import YOLO
-        return True, None
-    except ImportError as e:
-        error_msg = str(e)
-        if "libGL.so.1" in error_msg:
-            return False, "libGL"
-        else:
-            return False, "other"
-
-# 检查依赖
-yolo_ready, issue_type = fix_yolo_dependencies()
-
-if not yolo_ready:
-    if issue_type == "libGL":
-        st.warning("检测到系统依赖缺失，正在尝试修复...")
-        
-        # 显示修复进度
-        with st.spinner("安装系统依赖中..."):
-            try:
-                # 更新包管理器并安装依赖
-                result = subprocess.run(
-                    ['apt-get', 'update'], 
-                    capture_output=True, 
-                    text=True,
-                    timeout=60
-                )
-                
-                result2 = subprocess.run(
-                    ['apt-get', 'install', '-y', 'libgl1-mesa-glx', 'libglib2.0-0'], 
-                    capture_output=True, 
-                    text=True,
-                    timeout=120
-                )
-                
-                if result2.returncode == 0:
-                    st.success("依赖安装成功！请刷新页面重试。")
-                    st.balloons()
-                else:
-                    st.error("依赖安装失败，尝试备用方案...")
-                    # 尝试opencv-headless方案
-                    try:
-                        subprocess.run([
-                            sys.executable, '-m', 'pip', 'install', 
-                            'opencv-python-headless==4.8.1.78'
-                        ], check=True)
-                        st.success("备用方案安装成功！请刷新页面。")
-                    except:
-                        st.error("所有修复方案都失败了，请联系管理员。")
-                        
-            except Exception as e:
-                st.error(f"修复过程中出错: {str(e)}")
-        
-        st.stop()
-    else:
-        st.error("YOLO库导入失败，请检查安装。")
-        st.stop()
-
-# 如果依赖正常，继续执行后续代码
+# 必须在最开头设置环境变量
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
-# 现在安全地导入YOLO
-from ultralytics import YOLO
-YOLO_AVAILABLE = True
 
 # 设置页面
 st.set_page_config(page_title="电缆缺陷检测", layout="wide")
 st.title("电缆缺陷检测系统")
 
-# 在导入ultralytics之前设置环境变量
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
-# 现在导入ultralytics
+# 检查YOLO可用性
 try:
     from ultralytics import YOLO
     YOLO_AVAILABLE = True
+    st.success("YOLO库加载成功！")
 except ImportError as e:
-    st.error(f"无法导入YOLO: {e}")
+    st.error(f"YOLO导入失败: {e}")
     YOLO_AVAILABLE = False
+    # 显示解决方案
+    with st.expander("解决方案"):
+        st.markdown("""
+        **请确保 requirements.txt 包含：**
+        ```txt
+        ultralytics>=8.0.0
+        opencv-python-headless>=4.5.0
+        Pillow>=10.0.0
+        ```
+        """)
 
 # 类别映射
 CLASS_NAMES = {
@@ -107,9 +44,8 @@ COLORS = [
 
 @st.cache_resource
 def load_model():
-    """使用Ultralytics原生方式加载模型"""
+    """加载YOLO模型"""
     if not YOLO_AVAILABLE:
-        st.error("YOLO库不可用")
         return None
         
     try:
@@ -117,19 +53,18 @@ def load_model():
         model_files = [f for f in os.listdir('.') if f.endswith('.pt')]
         if not model_files:
             st.error("未找到.pt模型文件")
+            st.info("请确保模型文件已上传到应用根目录")
             return None
         
         model_path = model_files[0]
         st.info(f"找到模型文件: {model_path}")
-        st.info(f"文件大小: {os.path.getsize(model_path) / (1024*1024):.2f} MB")
         
-        # 使用Ultralytics YOLO类直接加载
+        # 加载模型
         model = YOLO(model_path)
         
-        # 验证模型加载成功
+        # 验证模型
         if hasattr(model, 'names'):
-            st.success(f"模型加载成功! 类别数: {len(model.names)}")
-            st.info(f"模型类别: {model.names}")
+            st.success(f"模型加载成功! 支持 {len(model.names)} 个类别")
         else:
             st.success("模型加载成功!")
             
@@ -137,10 +72,6 @@ def load_model():
         
     except Exception as e:
         st.error(f"模型加载失败: {str(e)}")
-        # 显示详细错误信息
-        import traceback
-        with st.expander("查看详细错误信息"):
-            st.code(traceback.format_exc())
         return None
 
 def draw_detections(image, results, conf_threshold=0.25):
@@ -189,17 +120,28 @@ def draw_detections(image, results, conf_threshold=0.25):
     
     return drawable_image, detections
 
-# 侧边栏
+# 侧边栏设置
 with st.sidebar:
     st.header("检测设置")
     confidence_threshold = st.slider(
-        "置信度阈值", 0.1, 0.9, 0.25
+        "置信度阈值", 0.1, 0.9, 0.25, 0.05,
+        help="值越高，检测要求越严格"
     )
     
     st.markdown("---")
-    st.markdown("支持检测的缺陷类型")
+    st.markdown("## 支持检测的缺陷类型")
     for class_name in CLASS_NAMES.values():
         st.write(f"- {class_name}")
+    
+    st.markdown("---")
+    if not YOLO_AVAILABLE:
+        st.error("YOLO不可用")
+        st.markdown("""
+        **请检查：**
+        1. requirements.txt 配置
+        2. 模型文件是否上传
+        3. 部署日志中的错误信息
+        """)
 
 # 主界面
 st.markdown("## 开始检测")
@@ -207,10 +149,16 @@ st.markdown("## 开始检测")
 # 加载模型
 model = load_model()
 
-uploaded_file = st.file_uploader("上传电缆图片", type=['jpg', 'jpeg', 'png'])
+# 文件上传
+uploaded_file = st.file_uploader(
+    "上传电缆图片", 
+    type=['jpg', 'jpeg', 'png'],
+    help="支持 JPG, JPEG, PNG 格式"
+)
 
 if uploaded_file is not None:
     try:
+        # 处理图片
         image = Image.open(uploaded_file).convert('RGB')
         
         col1, col2 = st.columns(2)
@@ -220,13 +168,13 @@ if uploaded_file is not None:
             st.image(image, use_column_width=True)
             st.write(f"图片尺寸: {image.size}")
         
-        if st.button("开始检测", type="primary"):
+        if st.button("开始检测", type="primary", disabled=model is None):
             if model is None:
                 st.error("模型未加载，无法检测")
             else:
-                with st.spinner("AI检测中..."):
+                with st.spinner("检测中，请稍候..."):
                     try:
-                        # 使用模型进行推理
+                        # 使用模型推理
                         results = model(image, conf=confidence_threshold, verbose=False)
                         
                         # 绘制结果
@@ -239,8 +187,8 @@ if uploaded_file is not None:
                             if detections:
                                 st.success(f"检测完成！发现 {len(detections)} 个缺陷")
                                 
-                                with st.expander("检测详情"):
-                                    # 统计
+                                with st.expander("📈 检测详情"):
+                                    # 统计信息
                                     from collections import Counter
                                     counts = Counter([d['class_name'] for d in detections])
                                     st.write("**缺陷统计:**")
@@ -259,7 +207,6 @@ if uploaded_file is not None:
                         
     except Exception as e:
         st.error(f"图片处理失败: {str(e)}")
-
 else:
     st.info("请上传电缆图片开始检测")
 
